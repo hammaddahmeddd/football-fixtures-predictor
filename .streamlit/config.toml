@@ -1,8 +1,62 @@
 
+# ==========================================
+# FOOTBALL FIXTURES RESULT PREDICTOR
+# Streamlit Configuration
+# ==========================================
+
+
+# ==========================================
+# DARK THEME
+# ==========================================
+
 [theme]
+
 base = "dark"
+
+# Primary green accent
 primaryColor = "#22C55E"
+
+# Main application background
 backgroundColor = "#0B1220"
+
+# Sidebar, widgets and card backgrounds
 secondaryBackgroundColor = "#162238"
+
+# High contrast text
 textColor = "#F8FAFC"
+
+# Typography
 font = "sans serif"
+
+
+# ==========================================
+# SERVER SETTINGS
+# ==========================================
+
+[server]
+
+headless = true
+
+# Render will provide the listening address
+# and port through the start command.
+#
+# Do not hardcode the port here.
+
+
+# ==========================================
+# BROWSER SETTINGS
+# ==========================================
+
+[browser]
+
+# Disable Streamlit usage-stat collection
+gatherUsageStats = false
+
+
+# ==========================================
+# LOGGER
+# ==========================================
+
+[logger]
+
+level = "info"
