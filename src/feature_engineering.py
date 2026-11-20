@@ -9,25 +9,113 @@ from config import PROCESSED_DATA_DIR
 
 
 # Features that will be used by ML models
-FEATURE_COLUMNS = [
-    "HomeLast5Points",
-    "AwayLast5Points",
-    "HomeAvgGoalsScored",
-    "AwayAvgGoalsScored",
-    "HomeAvgGoalsConceded",
-    "AwayAvgGoalsConceded",
-    "HomeWinRate",
-    "AwayWinRate",
-    "HomeGoalDifference",
-    "AwayGoalDifference",
-    "HomeHomeWinRate",
-    "AwayAwayWinRate",
-    "HomeRestDays",
-    "AwayRestDays",
-    "RestDaysDifference",
-    "FormDifference",
-    "GoalDifferenceDifference",
+LEGACY_FEATURE_COLUMNS = [
+    "HomeLast5Points", "AwayLast5Points",
+    "HomeAvgGoalsScored", "AwayAvgGoalsScored",
+    "HomeAvgGoalsConceded", "AwayAvgGoalsConceded",
+    "HomeWinRate", "AwayWinRate",
+    "HomeGoalDifference", "AwayGoalDifference",
+    "HomeHomeWinRate", "AwayAwayWinRate",
+    "HomeRestDays", "AwayRestDays", "RestDaysDifference",
+    "FormDifference", "GoalDifferenceDifference",
 ]
+
+ADVANCED_FEATURE_COLUMNS = [
+    "HomeLast3Points", "AwayLast3Points",
+    "HomeLast10PointsPerGame", "AwayLast10PointsPerGame",
+    "HomeLast10GoalsFor", "AwayLast10GoalsFor",
+    "HomeLast10GoalsAgainst", "AwayLast10GoalsAgainst",
+    "HomeWeightedPoints", "AwayWeightedPoints",
+    "HomeHomeGoalsFor", "AwayAwayGoalsFor",
+    "HomeHomeGoalsAgainst", "AwayAwayGoalsAgainst",
+    "HomeMatchesSeen", "AwayMatchesSeen",
+    "HomeElo", "AwayElo", "EloDifference",
+    "RecentGoalsScoredDifference", "RecentGoalsConcededDifference",
+]
+
+FEATURE_COLUMNS = LEGACY_FEATURE_COLUMNS + ADVANCED_FEATURE_COLUMNS
+
+ELO_INITIAL = 1500.0
+ELO_HOME_BONUS = 65.0
+ELO_K = 20.0
+
+
+def elo_expectation(home_rating, away_rating):
+    return 1.0 / (1.0 + 10.0 ** ((away_rating - home_rating - ELO_HOME_BONUS) / 400.0))
+
+
+def update_elo(home_rating, away_rating, home_goals, away_goals):
+    expected = elo_expectation(home_rating, away_rating)
+    actual = 1.0 if home_goals > away_goals else (0.5 if home_goals == away_goals else 0.0)
+    goal_factor = 1.0 + 0.25 * min(abs(home_goals - away_goals), 4)
+    delta = ELO_K * goal_factor * (actual - expected)
+    return home_rating + delta, away_rating - delta
+
+
+def get_advanced_team_stats(history, venue):
+    """All values are based exclusively on already-completed matches."""
+    def stats(matches):
+        count = len(matches)
+        return (
+            sum(m["points"] for m in matches) / count if count else 1.0,
+            sum(m["goals_scored"] for m in matches) / count if count else 1.3,
+            sum(m["goals_conceded"] for m in matches) / count if count else 1.3,
+        )
+
+    recent3 = history[-3:]
+    recent10 = history[-10:]
+    venue_matches = [m for m in history if m["venue"] == venue][-5:]
+    pts10, gf10, ga10 = stats(recent10)
+    _, venue_gf, venue_ga = stats(venue_matches)
+    recent = history[-5:]
+    weights = np.array([0.78 ** (len(recent) - 1 - i) for i in range(len(recent))], dtype=float)
+    weighted_points = float(np.average([m["points"] for m in recent], weights=weights)) if recent else 1.0
+    return {
+        "Last3Points": float(sum(m["points"] for m in recent3)),
+        "Last10PointsPerGame": float(pts10),
+        "Last10GoalsFor": float(gf10),
+        "Last10GoalsAgainst": float(ga10),
+        "WeightedPoints": weighted_points,
+        "VenueGoalsFor": float(venue_gf),
+        "VenueGoalsAgainst": float(venue_ga),
+        "MatchesSeen": float(min(len(history), 38)),
+    }
+
+
+def add_advanced_fixture_features(row, home_history, away_history, home_elo, away_elo):
+    h = get_advanced_team_stats(home_history, "Home")
+    a = get_advanced_team_stats(away_history, "Away")
+    for label in ["Last3Points", "Last10PointsPerGame", "Last10GoalsFor", "Last10GoalsAgainst", "WeightedPoints", "MatchesSeen"]:
+        row[f"Home{label}"] = h[label]
+        row[f"Away{label}"] = a[label]
+    row["HomeHomeGoalsFor"] = h["VenueGoalsFor"]
+    row["AwayAwayGoalsFor"] = a["VenueGoalsFor"]
+    row["HomeHomeGoalsAgainst"] = h["VenueGoalsAgainst"]
+    row["AwayAwayGoalsAgainst"] = a["VenueGoalsAgainst"]
+    row["HomeElo"] = float(home_elo)
+    row["AwayElo"] = float(away_elo)
+    row["EloDifference"] = float(home_elo - away_elo)
+    row["RecentGoalsScoredDifference"] = h["Last10GoalsFor"] - a["Last10GoalsFor"]
+    row["RecentGoalsConcededDifference"] = h["Last10GoalsAgainst"] - a["Last10GoalsAgainst"]
+    return row
+
+
+def elo_ratings_before(results, before_date):
+    """Calculate ratings using matches with Date strictly before before_date."""
+    ratings = defaultdict(lambda: ELO_INITIAL)
+    eligible = results[pd.to_datetime(results["Date"]) < pd.Timestamp(before_date)]
+    for date, group in eligible.sort_values("Date").groupby("Date", sort=True):
+        # Freeze pre-match ratings for all fixtures on the same date.
+        deltas = []
+        for _, match in group.iterrows():
+            h, a = match["HomeTeam"], match["AwayTeam"]
+            new_h, new_a = update_elo(ratings[h], ratings[a], int(match["FTHG"]), int(match["FTAG"]))
+            deltas.append((h, a, new_h - ratings[h], new_a - ratings[a]))
+        for h, a, dh, da in deltas:
+            ratings[h] += dh
+            ratings[a] += da
+    return ratings
+
 
 
 def load_cleaned_data():
@@ -151,6 +239,7 @@ def feature_engineering(df):
     ).reset_index(drop=True)
 
     team_history = defaultdict(list)
+    elo_ratings = defaultdict(lambda: ELO_INITIAL)
 
     features = []
 
@@ -235,10 +324,29 @@ def feature_engineering(df):
                     - away_stats["GoalDifference"],
             }
 
+            add_advanced_fixture_features(
+                row_features,
+                team_history[home_team],
+                team_history[away_team],
+                elo_ratings[home_team],
+                elo_ratings[away_team],
+            )
             features.append((index, row_features))
 
         # Only now update the histories with
         # the actual results from this date.
+        elo_updates = []
+        for _, match in day_matches.iterrows():
+            h, a = match["HomeTeam"], match["AwayTeam"]
+            new_h, new_a = update_elo(
+                elo_ratings[h], elo_ratings[a],
+                int(match["FTHG"]), int(match["FTAG"]),
+            )
+            elo_updates.append((h, a, new_h - elo_ratings[h], new_a - elo_ratings[a]))
+        for h, a, dh, da in elo_updates:
+            elo_ratings[h] += dh
+            elo_ratings[a] += da
+
         for _, match in day_matches.iterrows():
 
             home_team = match["HomeTeam"]
