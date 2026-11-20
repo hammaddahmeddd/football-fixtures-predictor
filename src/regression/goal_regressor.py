@@ -16,6 +16,13 @@ from sklearn.dummy import DummyClassifier
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score, log_loss, brier_score_loss
 from config import PROCESSED_DATA_DIR, MODELS_DIR, OUTPUTS_DIR
 from src.feature_engineering import FEATURE_COLUMNS
+from src.regression.goal_models import PairedGoalModel
+
+GOAL_COLUMNS = ("HomeLast10GoalsFor", "AwayLast10GoalsFor", "HomeLast10GoalsAgainst", "AwayLast10GoalsAgainst", "HomeHomeGoalsFor", "AwayAwayGoalsFor", "HomeHomeGoalsAgainst", "AwayAwayGoalsAgainst", "HomeElo", "AwayElo")
+
+def paired_candidates(binary=False):
+    return {f"PairedPoisson_a{alpha}_b{blend}": PairedGoalModel(GOAL_COLUMNS, alpha, blend, binary)
+            for alpha in (0.5, 2.0, 8.0) for blend in (0.25, 0.5, 1.0)}
 
 
 def main():
@@ -29,12 +36,14 @@ def main():
         raise ValueError("Missing split data")
     xtr, xv, xt = [d[FEATURE_COLUMNS] for d in (train, val, test)]
     ytr, yv, yt = [d["TotalGoals"].to_numpy(dtype=float) for d in (train, val, test)]
+    scores = train[["FTHG", "FTAG"]].to_numpy(dtype=float)
     MODEL = {
         "Ridge": make_pipeline(StandardScaler(), Ridge(alpha=100)),
         "Poisson": make_pipeline(StandardScaler(), PoissonRegressor(alpha=3.0, max_iter=1500)),
         "RandomForest": RandomForestRegressor(n_estimators=220, max_depth=5, min_samples_leaf=12, random_state=42, n_jobs=-1),
         "GradientBoosting": HistGradientBoostingRegressor(max_iter=160, max_leaf_nodes=9, l2_regularization=15, learning_rate=0.04, random_state=42),
     }
+    MODEL.update(paired_candidates())
     # A train-era mean predictor is a legitimate competing candidate.
     baseline = float(ytr.mean())
     best_name = "TrainMean"
@@ -42,7 +51,7 @@ def main():
     best_model = None
     val_rows = [{"Model": "TrainMean", "ValidationMAE": best_mae}]
     for name, model in MODEL.items():
-        model.fit(xtr, ytr)
+        model.fit(xtr, scores if isinstance(model, PairedGoalModel) else ytr)
         estimate = np.maximum(0, model.predict(xv))
         score = mean_absolute_error(yv, estimate)
         val_rows.append({"Model": name, "ValidationMAE": score})
@@ -59,10 +68,11 @@ def main():
         "LogisticRegression": make_pipeline(StandardScaler(), LogisticRegression(C=0.5, max_iter=1200, random_state=42)),
         "GradientBoosting": HistGradientBoostingClassifier(max_iter=150, max_leaf_nodes=8, l2_regularization=15, learning_rate=0.04, random_state=42),
     }
+    over_candidates.update(paired_candidates(binary=True))
     best_over_model, best_over_name, best_over_loss = None, None, float("inf")
     over_rows = []
     for name, model in over_candidates.items():
-        model.fit(xtr, train_binary)
+        model.fit(xtr, scores if isinstance(model, PairedGoalModel) else train_binary)
         pr = np.clip(model.predict_proba(xv)[:, 1], 1e-6, 1-1e-6)
         loss = log_loss(val_binary, pr, labels=[0, 1])
         over_rows.append({"Model": name, "ValidationLogLoss": loss,
@@ -99,8 +109,8 @@ def main():
     gd.mkdir(parents=True, exist_ok=True)
     joblib.dump(best_model, MODELS_DIR / "goal_regressor.joblib")
     joblib.dump(best_over_model, MODELS_DIR / "over_under_classifier.joblib")
-    pd.DataFrame(val_rows).to_csv(md / "regression_validation_comparison.csv", index=False)
-    pd.DataFrame(over_rows).to_csv(md / "over_under_validation_comparison.csv", index=False)
+    pd.DataFrame(val_rows).sort_values("ValidationMAE").to_csv(md / "regression_validation_comparison.csv", index=False)
+    pd.DataFrame(over_rows).sort_values("ValidationLogLoss").to_csv(md / "over_under_validation_comparison.csv", index=False)
     pd.DataFrame(metrics).to_csv(md / "regression_results.csv", index=False)
     pd.DataFrame({"ActualTotalGoals": yt, "PredictedTotalGoals": pred_test,
                   "ActualOver2_5": test_binary, "ProbOver2_5": over_prob, "PredictedOver2_5": over_pred}).to_csv(
@@ -121,7 +131,11 @@ def main():
     print("Validation-selected goal model:", best_name)
     print("Validation-selected Over/Under model:", best_over_name)
     print(pd.DataFrame(metrics).to_string(index=False))
-    print("Models saved. Evaluate test once; do not tune to this final test.")
+    print("Models saved. Historical test is a reused benchmark, not a fresh holdout.")
+    print("Validation regression comparison:")
+    print(pd.DataFrame(val_rows).sort_values("ValidationMAE").to_string(index=False))
+    print("Validation Over/Under comparison:")
+    print(pd.DataFrame(over_rows).sort_values("ValidationLogLoss").to_string(index=False))
 
 
 if __name__ == "__main__":
