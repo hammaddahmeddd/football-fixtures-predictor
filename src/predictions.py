@@ -43,6 +43,9 @@ from config import (
 from src.feature_engineering import (
     FEATURE_COLUMNS,
     get_team_statistics,
+    add_advanced_fixture_features,
+    elo_ratings_before,
+    LEGACY_FEATURE_COLUMNS,
 )
 
 from src.reinforcement_learning.environment import (
@@ -378,167 +381,60 @@ def validate_fixture_team_names(matches):
 # CURRENT SEASON HISTORICAL RESULTS
 # =====================================================
 
-def download_current_results():
-    """
-    Download completed current-season results.
+def fetch_match_records():
+    """Get one consistent current-season API snapshot per process."""
+    if not FOOTBALL_API_KEY:
+        raise ValueError("FOOTBALL_API_KEY missing. Check your root .env file.")
+    return _fetch_match_records()
 
-    Only completed matches from dates strictly
-    before today are used.
 
-    This conservative cutoff prevents same-day
-    result leakage when exact kickoff times
-    are not available in the CSV.
-    """
+from functools import lru_cache
 
-    start = (
-        CURRENT_SEASON_START_YEAR % 100
-    )
-
-    end = (
-        CURRENT_SEASON_START_YEAR + 1
-    ) % 100
-
-    season_code = (
-        f"{start:02d}{end:02d}"
-    )
-
-    url = (
-        f"{FOOTBALL_DATA_URL}/"
-        f"{season_code}/{LEAGUE_CODE}.csv"
-    )
-
-    print(
-        f"Downloading current results: {url}"
-    )
-
+@lru_cache(maxsize=1)
+def _fetch_match_records():
     response = requests.get(
-        url,
-        timeout=REQUEST_TIMEOUT
+        f"{FOOTBALL_API_BASE_URL}/competitions/PL/matches",
+        headers={"X-Auth-Token": FOOTBALL_API_KEY},
+        params={"season": CURRENT_SEASON_START_YEAR}, timeout=REQUEST_TIMEOUT,
     )
-
     response.raise_for_status()
+    matches = response.json().get("matches", [])
+    if len(matches) != 380 or len({m.get("id") for m in matches}) != 380 or any(m.get("id") is None for m in matches):
+        raise ValueError("Expected 380 unique Premier League fixtures; refusing incomplete refresh.")
+    return matches
 
-    df = pd.read_csv(
-        StringIO(response.text),
-        low_memory=False
-    )
 
-    required = [
-        "Date",
-        "HomeTeam",
-        "AwayTeam",
-        "FTHG",
-        "FTAG",
-        "FTR",
-    ]
+def download_current_results():
+    """Use official FINISHED scores from the same API as fixtures.
 
-    missing = [
-        col for col in required
-        if col not in df.columns
-    ]
-
-    if missing:
-        raise ValueError(
-            f"Current dataset missing columns: {missing}"
-        )
-
-    df = df[required].copy()
-
-    df["Date"] = pd.to_datetime(
-        df["Date"],
-        dayfirst=True,
-        errors="coerce"
-    )
-
-    for col in ["FTHG", "FTAG"]:
-
-        df[col] = pd.to_numeric(
-            df[col],
-            errors="coerce"
-        )
-
-    df = df.dropna(
-        subset=required
-    ).copy()
-
-    df["FTR"] = (
-        df["FTR"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-
-    df = df[
-        df["FTR"].isin(
-            ["H", "D", "A"]
-        )
-    ].copy()
-
-    # Validate nonnegative whole-number goals
-    df = df[
-        (df["FTHG"] >= 0)
-        & (df["FTAG"] >= 0)
-        & (df["FTHG"] % 1 == 0)
-        & (df["FTAG"] % 1 == 0)
-    ].copy()
-
-    expected_results = np.where(
-        df["FTHG"] > df["FTAG"],
-        "H",
-        np.where(
-            df["FTHG"] < df["FTAG"],
-            "A",
-            "D"
-        )
-    )
-
-    df = df[
-        df["FTR"].to_numpy()
-        == expected_results
-    ].copy()
-
-    df["Season"] = CURRENT_SEASON
-
-    today_utc = pd.Timestamp(
-        datetime.now(timezone.utc).date()
-    )
-
-    df = df[
-        df["Date"] < today_utc
-    ].copy()
-
-    df = df.drop_duplicates(
-        subset=[
-            "Date",
-            "HomeTeam",
-            "AwayTeam"
-        ]
-    )
-
-    df = df.sort_values(
-        ["Date", "HomeTeam", "AwayTeam"]
-    ).reset_index(drop=True)
-
-    RAW_DATA_DIR.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    output_path = (
-        RAW_DATA_DIR
-        / "premier_league_2026_27.csv"
-    )
-
-    df.to_csv(
-        output_path,
-        index=False
-    )
-
-    print(
-        "Current-season completed matches:",
-        len(df)
-    )
-
+    Same-day completed games count in standings, but feature generation
+    still excludes all matches on the fixture's calendar date.
+    """
+    rows = []
+    for match in fetch_match_records():
+        if match.get("status") != "FINISHED":
+            continue
+        score = (match.get("score") or {}).get("fullTime") or {}
+        hg, ag = score.get("home"), score.get("away")
+        if not isinstance(hg, int) or not isinstance(ag, int) or min(hg, ag) < 0:
+            raise ValueError(f"Invalid finished score for match {match.get('id')}")
+        kickoff = pd.to_datetime(match["utcDate"], utc=True)
+        if kickoff > pd.Timestamp.now(tz="UTC"):
+            raise ValueError("Finished match has a future kickoff")
+        rows.append({"Date": pd.Timestamp(kickoff.date()),
+                     "HomeTeam": normalize_team_name(get_api_team_name(match["homeTeam"])),
+                     "AwayTeam": normalize_team_name(get_api_team_name(match["awayTeam"])),
+                     "FTHG": hg, "FTAG": ag,
+                     "FTR": "H" if hg > ag else "A" if hg < ag else "D",
+                     "Season": CURRENT_SEASON})
+    df = pd.DataFrame(rows, columns=["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR", "Season"])
+    if df.empty or df.duplicated(["HomeTeam", "AwayTeam"]).any():
+        raise ValueError("No completed matches or duplicate completed fixtures")
+    df = df.sort_values(["Date", "HomeTeam", "AwayTeam"]).reset_index(drop=True)
+    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    output = RAW_DATA_DIR / f"premier_league_{CURRENT_SEASON_START_YEAR}_{str(CURRENT_SEASON_START_YEAR+1)[-2:]}.csv"
+    df.to_csv(output, index=False)
+    print("Current-season completed matches:", len(df))
     return df
 
 
@@ -650,41 +546,8 @@ def fetch_upcoming_fixtures():
     remaining fixtures.
     """
 
-    if not FOOTBALL_API_KEY:
-        raise ValueError(
-            "FOOTBALL_API_KEY missing. "
-            "Check your root .env file."
-        )
-
-    url = (
-        f"{FOOTBALL_API_BASE_URL}"
-        "/competitions/PL/matches"
-    )
-
-    headers = {
-        "X-Auth-Token": FOOTBALL_API_KEY
-    }
-
-    params = {
-        "season": CURRENT_SEASON_START_YEAR
-    }
-
     print("\nFetching upcoming fixtures...")
-
-    response = requests.get(
-        url,
-        headers=headers,
-        params=params,
-        timeout=REQUEST_TIMEOUT
-    )
-
-    response.raise_for_status()
-
-    payload = response.json()
-
-    matches = payload.get(
-        "matches", []
-    )
+    matches = fetch_match_records()
 
     if not matches:
         raise ValueError(
@@ -924,11 +787,12 @@ def build_fixture_features(
     historical_results
 ):
     """
-    Generate the exact 17 features used
+    Generate the exact 38 features used
     during classification model training.
     """
 
     rows = []
+    elo_cache = {}
 
     for _, fixture in fixtures.iterrows():
 
@@ -1025,6 +889,14 @@ def build_fixture_features(
             away_history
         )
 
+        date_key = str(fixture_date.date())
+        if date_key not in elo_cache:
+            elo_cache[date_key] = elo_ratings_before(historical_results, fixture_date)
+        ratings = elo_cache[date_key]
+        add_advanced_fixture_features(
+            row, home_history, away_history,
+            ratings.get(home, 1500.0), ratings.get(away, 1500.0),
+        )
         rows.append(row)
 
     result = pd.DataFrame(
@@ -1173,9 +1045,16 @@ def predict_fixtures(
         policy,
     ) = load_models()
 
-    X = feature_df[
-        FEATURE_COLUMNS
-    ]
+    saved_columns_path = MODELS_DIR / "feature_columns.joblib"
+    if not saved_columns_path.exists():
+        raise FileNotFoundError("Missing feature_columns.joblib. Retrain models first.")
+    saved_columns = joblib.load(saved_columns_path)
+    if list(saved_columns) != list(FEATURE_COLUMNS):
+        raise ValueError(
+            "Model feature schema mismatch. Run feature engineering, "
+            "train_models, goal_regressor, and q_learning in that order."
+        )
+    X = feature_df[FEATURE_COLUMNS]
 
     predictions = (
         feature_df.copy()
@@ -1258,11 +1137,16 @@ def predict_fixtures(
         goal_predictions
     )
 
-    predictions["OverUnder2_5"] = np.where(
-        goal_predictions > 2.5,
-        "Over",
-        "Under"
-    )
+    # The binary model is independent of the total-goals point estimate.
+    over_path = MODELS_DIR / "over_under_classifier.joblib"
+    over_model = joblib.load(over_path)
+    over_prob = over_model.predict_proba(X)[:, list(over_model.classes_).index(1)]
+    if not np.isfinite(over_prob).all() or ((over_prob < 0) | (over_prob > 1)).any():
+        raise ValueError("Invalid Over/Under probabilities")
+    predictions["ProbOver2_5"] = over_prob
+    predictions["ProbUnder2_5"] = 1 - over_prob
+    predictions["OverUnder2_5"] = np.where(over_prob >= 0.5, "Over", "Under")
+    predictions["PredictionGeneratedUTC"] = pd.Timestamp.now(tz="UTC").isoformat()
 
     # ---------------------------------------------
     # Q-Learning Strategy Maker
@@ -1273,7 +1157,7 @@ def predict_fixtures(
     ]
 
     fallback_model = policy.get(
-        "fallback_model",
+        "default_action",
         "KNN"
     )
 
@@ -1447,6 +1331,7 @@ def main():
         "ResultLabel",
         "PredictedTotalGoals",
         "OverUnder2_5",
+        "ProbOver2_5",
         "SelectedModel",
     ]
 

@@ -50,6 +50,7 @@ from config import (
 )
 
 from src.predictions import (
+    fetch_match_records,
     get_api_team_name,
     normalize_team_name,
     load_historical_results,
@@ -95,36 +96,7 @@ def fetch_season_schedule():
     retrieves every remaining fixture.
     """
 
-    if not FOOTBALL_API_KEY:
-        raise ValueError(
-            "FOOTBALL_API_KEY is missing."
-        )
-
-    url = (
-        f"{FOOTBALL_API_BASE_URL}"
-        "/competitions/PL/matches"
-    )
-
-    headers = {
-        "X-Auth-Token": FOOTBALL_API_KEY
-    }
-
-    params = {
-        "season": CURRENT_SEASON_START_YEAR
-    }
-
-    response = requests.get(
-        url,
-        headers=headers,
-        params=params,
-        timeout=30
-    )
-
-    response.raise_for_status()
-
-    matches = response.json().get(
-        "matches", []
-    )
+    matches = fetch_match_records()
 
     if not matches:
         raise ValueError(
@@ -465,8 +437,9 @@ def prepare_future_predictions(
         featured
     )
 
-    # Extract the probabilities from the
-    # model selected by Q-Learning.
+    # Extract predictive probabilities from the selected classifier.
+    # Uncalibrated probabilities must be treated as experimental, not
+    # as verified real-world likelihoods.
     probabilities = []
 
     for _, row in predictions.iterrows():
