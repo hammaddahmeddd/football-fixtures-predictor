@@ -1,0 +1,4 @@
+Model,ValidationLogLoss,ValidationAccuracy
+TrainPrior,0.6845220049722351,0.5657894736842105
+LogisticRegression,0.6869436352726269,0.55
+GradientBoosting,0.6899853303468968,0.5710526315789474
