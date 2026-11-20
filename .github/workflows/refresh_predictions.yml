@@ -142,6 +142,10 @@ jobs:
           echo "Running Monte Carlo season simulation..."
           python -m src.season_simulation
           echo "Season simulation completed."
+                - name: Update prediction history
+        run: |
+          echo "Updating live prediction history..."
+          python -m src.prediction_history
 
       # ===============================================
       # STEP 8: RUN AUTOMATED TESTS
