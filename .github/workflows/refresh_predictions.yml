@@ -1,45 +1,22 @@
 
 name: Refresh Football Predictions
 
-# =====================================================
-# WORKFLOW TRIGGERS
-# =====================================================
-
 on:
   schedule:
-    # Daily at 7:17 AM Pakistan time
     - cron: "17 2 * * *"
-
-  # Allow manual execution from GitHub Actions
   workflow_dispatch:
-
-# =====================================================
-# PERMISSIONS
-# =====================================================
 
 permissions:
   contents: write
-
-# =====================================================
-# CONCURRENCY CONTROL
-# =====================================================
 
 concurrency:
   group: football-refresh-${{ github.ref }}
   cancel-in-progress: false
 
-# =====================================================
-# AUTOMATIC REFRESH JOB
-# =====================================================
-
 jobs:
-
   refresh:
-
     name: Update Football Predictions
-
     runs-on: ubuntu-latest
-
     timeout-minutes: 30
 
     env:
@@ -49,18 +26,10 @@ jobs:
 
     steps:
 
-      # ===============================================
-      # STEP 1: CHECKOUT REPOSITORY
-      # ===============================================
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      # ===============================================
-      # STEP 2: SET UP PYTHON
-      # ===============================================
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -69,96 +38,49 @@ jobs:
           cache: pip
           cache-dependency-path: requirements.txt
 
-      # ===============================================
-      # STEP 3: INSTALL DEPENDENCIES
-      # ===============================================
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      # ===============================================
-      # STEP 4: VERIFY API KEY
-      # ===============================================
-
       - name: Verify API credentials
         run: |
-          python -c "
-          import os
-
-          if not os.getenv('FOOTBALL_API_KEY'):
-              raise RuntimeError('FOOTBALL_API_KEY secret is missing.')
-
-          print('Football API credentials available.')
-          "
-
-      # ===============================================
-      # STEP 5: VERIFY TRAINED MODELS
-      # ===============================================
+          python -c "import os; assert os.getenv('FOOTBALL_API_KEY'), 'Missing FOOTBALL_API_KEY secret'"
 
       - name: Verify trained models
         run: |
-          python -c "
+          python - <<'PY'
           from pathlib import Path
 
-          required_models = [
-              'knn.joblib',
-              'svm.joblib',
-              'decision_tree.joblib',
-              'random_forest.joblib',
-              'best_classifier.joblib',
-              'goal_regressor.joblib',
-              'over_under_classifier.joblib',
-              'q_learning_policy.joblib',
-              'feature_columns.joblib'
+          models = [
+              "knn.joblib",
+              "svm.joblib",
+              "decision_tree.joblib",
+              "random_forest.joblib",
+              "best_classifier.joblib",
+              "goal_regressor.joblib",
+              "over_under_classifier.joblib",
+              "q_learning_policy.joblib",
+              "feature_columns.joblib"
           ]
 
-          for model in required_models:
-              path = Path('models') / model
-
-              if not path.exists():
-                  raise FileNotFoundError(f'Missing model: {model}')
-
-              print(f'Found model: {model}')
-          "
-
-      # ===============================================
-      # STEP 6: UPDATE WEEKLY MATCH PREDICTIONS
-      # ===============================================
+          for model in models:
+              path = Path("models") / model
+              assert path.exists(), f"Missing model: {model}"
+              print(f"Found: {model}")
+          PY
 
       - name: Generate weekly predictions
-        run: |
-          echo "Fetching latest football fixtures..."
-          python -m src.predictions
-          echo "Weekly predictions completed."
-
-      # ===============================================
-      # STEP 7: UPDATE FULL-SEASON SIMULATION
-      # ===============================================
+        run: python -m src.predictions
 
       - name: Update season projections
-        run: |
-          echo "Running Monte Carlo season simulation..."
-          python -m src.season_simulation
-          echo "Season simulation completed."
-                - name: Update prediction history
-        run: |
-          echo "Updating live prediction history..."
-          python -m src.prediction_history
+        run: python -m src.season_simulation
 
-      # ===============================================
-      # STEP 8: RUN AUTOMATED TESTS
-      # ===============================================
+      - name: Update prediction history
+        run: python -m src.prediction_history
 
       - name: Validate project outputs
-        run: |
-          echo "Running automated project tests..."
-          python -m pytest tests/ -v
-
-      # ===============================================
-      # STEP 9: COMMIT UPDATED DATA
-      # ===============================================
+        run: python -m pytest tests/ -v
 
       - name: Commit updated predictions
         run: |
@@ -177,31 +99,14 @@ jobs:
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
-      # ===============================================
-      # STEP 10: SUCCESS MESSAGE
-      # ===============================================
-
       - name: Refresh completed
         if: success()
         run: |
-          echo "========================================"
-          echo "FOOTBALL PREDICTION REFRESH SUCCESSFUL"
-          echo "========================================"
-          echo "Latest match results collected."
-          echo "Weekly predictions updated."
-          echo "Season projections updated."
+          echo "Football prediction refresh successful."
           echo "Automated tests passed."
-          echo "Updated data pushed to GitHub."
-
-      # ===============================================
-      # STEP 11: FAILURE MESSAGE
-      # ===============================================
 
       - name: Refresh failed
         if: failure()
         run: |
-          echo "========================================"
-          echo "FOOTBALL PREDICTION REFRESH FAILED"
-          echo "========================================"
+          echo "Football prediction refresh failed."
           echo "Review the failed step in GitHub Actions."
-          echo "Existing deployed predictions remain unchanged."
