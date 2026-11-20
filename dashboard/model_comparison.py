@@ -1,4 +1,4 @@
-
+﻿
 import pandas as pd
 import streamlit as st
 
@@ -25,7 +25,7 @@ def load_results():
 
 def render():
 
-    st.title("📊 Model Comparison")
+    st.title("ðŸ“Š Model Comparison")
 
     st.write(
         "Evaluation of the four classification "
@@ -47,7 +47,7 @@ def render():
     st.dataframe(
         df,
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
 
     st.divider()
@@ -154,7 +154,7 @@ def render():
                 caption=image_path.stem.replace(
                     "_", " "
                 ).title(),
-                use_container_width=True,
+                width="stretch",
             )
 
     else:
@@ -185,3 +185,4 @@ def render():
         "accuracy while performing poorly on "
         "minority classes."
     )
+

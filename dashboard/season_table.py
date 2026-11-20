@@ -1,4 +1,4 @@
-
+﻿
 import pandas as pd
 import streamlit as st
 
@@ -25,7 +25,7 @@ def load_season():
 
 def render():
 
-    st.title("🏆 Projected Premier League Table")
+    st.title("ðŸ† Projected Premier League Table")
 
     st.write(
         "Full-season projections based on "
@@ -80,7 +80,7 @@ def render():
     st.dataframe(
         display[available],
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     st.divider()
@@ -104,7 +104,7 @@ def render():
     st.dataframe(
         display[available_probs],
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             col: st.column_config.NumberColumn(
                 col.replace("Probability", " Chance"),
@@ -151,7 +151,7 @@ def render():
 
             st.image(
                 str(path),
-                use_container_width=True
+                width="stretch"
             )
 
     st.divider()
@@ -205,3 +205,4 @@ def render():
         "seasons. They depend on model assumptions "
         "and are not official league forecasts."
     )
+

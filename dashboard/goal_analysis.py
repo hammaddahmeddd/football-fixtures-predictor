@@ -1,4 +1,4 @@
-
+﻿
 import pandas as pd
 import streamlit as st
 
@@ -23,7 +23,7 @@ def read_optional_csv(path):
 
 def render():
 
-    st.title("⚽ Goal Analysis")
+    st.title("âš½ Goal Analysis")
 
     st.write(
         "Regression-based total-goal predictions "
@@ -52,7 +52,7 @@ def render():
         st.dataframe(
             results,
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
     else:
@@ -63,7 +63,7 @@ def render():
 
     st.caption(
         "Lower MAE and RMSE are better. "
-        "Negative R² means the regression model "
+        "Negative RÂ² means the regression model "
         "performed worse than predicting the "
         "evaluation target's mean."
     )
@@ -81,7 +81,7 @@ def render():
 
         st.image(
             str(actual_chart),
-            use_container_width=True
+            width="stretch"
         )
 
     elif test_predictions is not None:
@@ -89,7 +89,7 @@ def render():
         st.dataframe(
             test_predictions.head(30),
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
     else:
@@ -109,7 +109,7 @@ def render():
 
         st.image(
             str(error_chart),
-            use_container_width=True
+            width="stretch"
         )
 
     st.divider()
@@ -133,7 +133,7 @@ def render():
             st.dataframe(
                 weekly[required],
                 hide_index=True,
-                use_container_width=True
+                width="stretch"
             )
 
             counts = (
@@ -157,3 +157,4 @@ def render():
         "season. These forecasts should therefore "
         "be interpreted cautiously."
     )
+

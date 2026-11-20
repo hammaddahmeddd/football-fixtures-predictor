@@ -1,4 +1,4 @@
-
+﻿
 """
 Dashboard: Weekly Match Predictions
 """
@@ -32,7 +32,7 @@ def load_predictions():
 
 def render():
 
-    st.title("⚽ Match Predictions")
+    st.title("âš½ Match Predictions")
 
     st.write(
         "Explore upcoming Premier League fixtures, "
@@ -126,7 +126,7 @@ def render():
     st.dataframe(
         display,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "Expected Goals":
                 st.column_config.NumberColumn(
@@ -148,7 +148,7 @@ def render():
         df.to_csv(index=False),
         file_name="weekly_predictions.csv",
         mime="text/csv",
-        use_container_width=False,
+        width="content",
     )
 
     st.divider()
@@ -194,7 +194,7 @@ def render():
         )
 
         st.markdown(
-            f"## 🏅 {result}"
+            f"## ðŸ… {result}"
         )
 
         st.write(
@@ -297,7 +297,7 @@ def render():
         st.dataframe(
             comparison,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "Confidence (%)":
                     st.column_config.ProgressColumn(
@@ -334,3 +334,4 @@ def render():
         "class. Its accuracy as a probability "
         "estimate has not been independently verified."
     )
+

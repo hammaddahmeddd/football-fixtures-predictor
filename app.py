@@ -1,4 +1,4 @@
-
+﻿
 """
 Football Fixtures Result Predictor
 Modern Streamlit Dashboard
@@ -16,6 +16,7 @@ from dashboard import (
     goal_analysis,
     season_table,
     strategy_maker,
+    prediction_history,
 )
 
 
@@ -25,7 +26,7 @@ from dashboard import (
 
 st.set_page_config(
     page_title="Football Fixtures Predictor",
-    page_icon="⚽",
+    page_icon="âš½",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -170,15 +171,17 @@ PAGES = {
     "Goal Analysis": goal_analysis,
     "Season Table": season_table,
     "Strategy Maker": strategy_maker,
+    "Prediction History": prediction_history,
 }
 
 PAGE_ICONS = {
-    "Overview": "📊",
-    "Match Predictions": "⚽",
-    "Model Comparison": "📈",
-    "Goal Analysis": "🎯",
-    "Season Table": "🏆",
-    "Strategy Maker": "🧠",
+    "Overview": "ðŸ“Š",
+    "Match Predictions": "âš½",
+    "Model Comparison": "ðŸ“ˆ",
+    "Goal Analysis": "ðŸŽ¯",
+    "Season Table": "ðŸ†",
+    "Strategy Maker": "ðŸ§ ",
+    "Prediction History": "ðŸ“‹",
 }
 
 
@@ -190,7 +193,7 @@ def main():
 
     with st.sidebar:
 
-        st.title("⚽ Football Predictor")
+        st.title("âš½ Football Predictor")
 
         st.caption(
             "PREMIER LEAGUE 2026/27"
@@ -225,19 +228,19 @@ def main():
             """
             **Implemented Models**
 
-            KNN · SVM · Decision Tree
+            KNN Â· SVM Â· Decision Tree
 
-            Random Forest · Regression
+            Random Forest Â· Regression
 
-            K-Means · Q-Learning
+            K-Means Â· Q-Learning
             """
         )
 
         st.divider()
 
         if st.button(
-            "🔄 Refresh Dashboard",
-            use_container_width=True,
+            "ðŸ”„ Refresh Dashboard",
+            width="stretch",
         ):
             st.cache_data.clear()
             st.rerun()
@@ -256,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

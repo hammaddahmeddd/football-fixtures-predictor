@@ -1,4 +1,4 @@
-
+﻿
 """
 Football Fixtures Result Predictor
 Dashboard: Overview Page
@@ -41,7 +41,7 @@ def read_csv(path):
 
 def render():
 
-    st.title("⚽ Football Fixtures Predictor")
+    st.title("âš½ Football Fixtures Predictor")
 
     st.write(
         "A machine learning system for predicting "
@@ -128,7 +128,7 @@ def render():
 
     with left:
 
-        st.subheader("🎯 Project Objectives")
+        st.subheader("ðŸŽ¯ Project Objectives")
 
         st.markdown(
             """
@@ -149,7 +149,7 @@ def render():
 
     with right:
 
-        st.subheader("🧠 Machine Learning Algorithms")
+        st.subheader("ðŸ§  Machine Learning Algorithms")
 
         algorithms = pd.DataFrame({
             "Category": [
@@ -177,7 +177,7 @@ def render():
         st.dataframe(
             algorithms,
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
     st.divider()
@@ -186,7 +186,7 @@ def render():
     # PROJECTED LEAGUE LEADERS
     # ======================================
 
-    st.subheader("🏆 Projected League Leaders")
+    st.subheader("ðŸ† Projected League Leaders")
 
     if season is not None and not season.empty:
 
@@ -221,7 +221,7 @@ def render():
         st.dataframe(
             display,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "ProjectedPosition":
                     st.column_config.NumberColumn(
@@ -253,7 +253,7 @@ def render():
         # TITLE PROBABILITY CHART
         # ==================================
 
-        st.subheader("📊 Title Winning Probabilities")
+        st.subheader("ðŸ“Š Title Winning Probabilities")
 
         title_chart = leaders[
             [
@@ -265,14 +265,14 @@ def render():
         st.bar_chart(
             title_chart,
             y_label="Title Probability (%)",
-            use_container_width=True
+            width="stretch"
         )
 
         # ==================================
         # EXPECTED FINAL POINTS
         # ==================================
 
-        st.subheader("📈 Expected Final Points")
+        st.subheader("ðŸ“ˆ Expected Final Points")
 
         points_chart = leaders[
             [
@@ -284,7 +284,7 @@ def render():
         st.bar_chart(
             points_chart,
             y_label="Expected Points",
-            use_container_width=True
+            width="stretch"
         )
 
         # ==================================
@@ -356,7 +356,7 @@ def render():
     # COMPLETE PROJECT WORKFLOW
     # ======================================
 
-    st.subheader("🔄 Project Workflow")
+    st.subheader("ðŸ”„ Project Workflow")
 
     st.code(
         "Historical Football Data + Live Fixtures\n"
@@ -395,3 +395,4 @@ def render():
         "Premier League 2026/27 | "
         "University Machine Learning Project"
     )
+

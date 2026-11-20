@@ -1,4 +1,4 @@
-
+﻿
 import pandas as pd
 import streamlit as st
 
@@ -23,7 +23,7 @@ def read_optional_csv(path):
 
 def render():
 
-    st.title("🧠 Q-Learning Strategy Maker")
+    st.title("ðŸ§  Q-Learning Strategy Maker")
 
     st.write(
         "A reinforcement learning component that "
@@ -54,7 +54,7 @@ def render():
             ],
         }),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     st.divider()
@@ -71,7 +71,7 @@ def render():
         st.dataframe(
             comparison,
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
     else:
@@ -94,7 +94,7 @@ def render():
         st.dataframe(
             history.tail(10),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
         numeric_columns = [
@@ -153,7 +153,7 @@ def render():
         st.dataframe(
             weekly[available],
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
         st.subheader("Models Selected This Week")
@@ -203,3 +203,4 @@ def render():
         "The saved policy is evaluated on a "
         "later held-out season."
     )
+
