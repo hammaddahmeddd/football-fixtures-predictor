@@ -1,4 +1,4 @@
-﻿
+
 import pandas as pd
 import streamlit as st
 
@@ -25,7 +25,7 @@ def load_results():
 
 def render():
 
-    st.title("ðŸ“Š Model Comparison")
+    st.title("📊 Model Comparison")
 
     st.write(
         "Evaluation of the four classification "

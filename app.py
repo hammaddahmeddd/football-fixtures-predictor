@@ -1,4 +1,4 @@
-﻿
+
 """
 Football Fixtures Result Predictor
 Modern Streamlit Dashboard
@@ -26,7 +26,7 @@ from dashboard import (
 
 st.set_page_config(
     page_title="Football Fixtures Predictor",
-    page_icon="âš½",
+    page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -175,13 +175,13 @@ PAGES = {
 }
 
 PAGE_ICONS = {
-    "Overview": "ðŸ“Š",
-    "Match Predictions": "âš½",
-    "Model Comparison": "ðŸ“ˆ",
-    "Goal Analysis": "ðŸŽ¯",
-    "Season Table": "ðŸ†",
-    "Strategy Maker": "ðŸ§ ",
-    "Prediction History": "ðŸ“‹",
+    "Overview": "📊",
+    "Match Predictions": "⚽",
+    "Model Comparison": "📈",
+    "Goal Analysis": "🎯",
+    "Season Table": "🏆",
+    "Strategy Maker": "🧠",
+    "Prediction History": "📋",
 }
 
 
@@ -193,7 +193,7 @@ def main():
 
     with st.sidebar:
 
-        st.title("âš½ Football Predictor")
+        st.title("⚽ Football Predictor")
 
         st.caption(
             "PREMIER LEAGUE 2026/27"
@@ -228,18 +228,18 @@ def main():
             """
             **Implemented Models**
 
-            KNN Â· SVM Â· Decision Tree
+            KNN · SVM · Decision Tree
 
-            Random Forest Â· Regression
+            Random Forest · Regression
 
-            K-Means Â· Q-Learning
+            K-Means · Q-Learning
             """
         )
 
         st.divider()
 
         if st.button(
-            "ðŸ”„ Refresh Dashboard",
+            "🔄 Refresh Dashboard",
             width="stretch",
         ):
             st.cache_data.clear()

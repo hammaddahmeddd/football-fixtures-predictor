@@ -1,4 +1,4 @@
-﻿
+
 """
 Dashboard: Prediction History and Live Accuracy
 """
@@ -35,7 +35,7 @@ def format_accuracy(value):
 
 def render():
 
-    st.title("ðŸ“Š Prediction History")
+    st.title("📊 Prediction History")
 
     st.write(
         "Track original pre-match predictions "

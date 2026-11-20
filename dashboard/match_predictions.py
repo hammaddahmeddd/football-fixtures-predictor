@@ -1,4 +1,4 @@
-﻿
+
 """
 Dashboard: Weekly Match Predictions
 """
@@ -32,7 +32,7 @@ def load_predictions():
 
 def render():
 
-    st.title("âš½ Match Predictions")
+    st.title("⚽ Match Predictions")
 
     st.write(
         "Explore upcoming Premier League fixtures, "
@@ -194,7 +194,7 @@ def render():
         )
 
         st.markdown(
-            f"## ðŸ… {result}"
+            f"## 🏅 {result}"
         )
 
         st.write(

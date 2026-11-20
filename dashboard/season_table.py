@@ -1,4 +1,4 @@
-﻿
+
 import pandas as pd
 import streamlit as st
 
@@ -25,7 +25,7 @@ def load_season():
 
 def render():
 
-    st.title("ðŸ† Projected Premier League Table")
+    st.title("🏆 Projected Premier League Table")
 
     st.write(
         "Full-season projections based on "

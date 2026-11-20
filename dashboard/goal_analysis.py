@@ -1,4 +1,4 @@
-﻿
+
 import pandas as pd
 import streamlit as st
 
@@ -23,7 +23,7 @@ def read_optional_csv(path):
 
 def render():
 
-    st.title("âš½ Goal Analysis")
+    st.title("⚽ Goal Analysis")
 
     st.write(
         "Regression-based total-goal predictions "
@@ -63,7 +63,7 @@ def render():
 
     st.caption(
         "Lower MAE and RMSE are better. "
-        "Negative RÂ² means the regression model "
+        "Negative R² means the regression model "
         "performed worse than predicting the "
         "evaluation target's mean."
     )

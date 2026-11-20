@@ -1,4 +1,4 @@
-﻿
+
 import pandas as pd
 import streamlit as st
 
@@ -23,7 +23,7 @@ def read_optional_csv(path):
 
 def render():
 
-    st.title("ðŸ§  Q-Learning Strategy Maker")
+    st.title("🧠 Q-Learning Strategy Maker")
 
     st.write(
         "A reinforcement learning component that "
