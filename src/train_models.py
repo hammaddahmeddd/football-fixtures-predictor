@@ -1,216 +1,134 @@
+"""Time-aware hyperparameter search, isolated validation selection, historical test comparison.
 
+Run after feature_engineering: python -m src.train_models
+Preserves existing CSV and model names used by Streamlit and Q-Learning.
+"""
 import joblib
+import numpy as np
 import pandas as pd
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score, accuracy_score, log_loss
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.base import clone
 
-from config import (
-    PROCESSED_DATA_DIR,
-    MODELS_DIR,
-)
-
+from config import PROCESSED_DATA_DIR, MODELS_DIR, OUTPUTS_DIR
 from src.feature_engineering import FEATURE_COLUMNS
+from src.evaluate_models import evaluate_classifier, save_confusion_matrix, save_results_table
 
-from src.classification.knn import create_knn_model
-from src.classification.svm import create_svm_model
-from src.classification.decision_tree import (
-    create_decision_tree_model,
-)
-from src.ensemble.random_forest import (
-    create_random_forest_model,
-)
-
-from src.evaluate_models import (
-    evaluate_classifier,
-    save_confusion_matrix,
-    save_results_table,
-)
+SPLITS = {
+    "train": ["2021-22", "2022-23", "2023-24"],
+    "validation": ["2024-25"],
+    "test": ["2025-26"],
+}
 
 
 def load_training_data():
-    path = (
-        PROCESSED_DATA_DIR /
-        "premier_league_features.csv"
-    )
-
-    if not path.exists():
-        raise FileNotFoundError(
-            "Feature dataset not found. Run "
-            "python -m src.feature_engineering first."
-        )
-
-    df = pd.read_csv(path)
-
-    required = FEATURE_COLUMNS + ["FTR", "Season"]
-
-    missing = [
-        column for column in required
-        if column not in df.columns
-    ]
-
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
-
-    if df[required].isnull().any().any():
-        raise ValueError(
-            "Missing values detected in training data."
-        )
-
-    if not df["FTR"].isin(["H", "D", "A"]).all():
-        raise ValueError("Unexpected result labels.")
-
-    return df
+    df = pd.read_csv(PROCESSED_DATA_DIR / "premier_league_features.csv")
+    required = FEATURE_COLUMNS + ["Season", "FTR"]
+    if not set(required).issubset(df.columns):
+        raise ValueError("Feature dataset missing advanced columns; rerun src.feature_engineering")
+    if df[required].isna().any().any() or not df["FTR"].isin(["H", "D", "A"]).all():
+        raise ValueError("Invalid features or outcome labels")
+    return df.sort_values("Date", kind="stable").reset_index(drop=True)
 
 
 def split_data(df):
-    training_seasons = [
-        "2021-22", "2022-23", "2023-24"
-    ]
+    portions = [df[df.Season.isin(SPLITS[k])] for k in ("train", "validation", "test")]
+    if any(p.empty for p in portions):
+        raise ValueError("Training, validation, and test splits must all be populated")
+    result = []
+    for p in portions:
+        result.extend((p[FEATURE_COLUMNS], p["FTR"]))
+    return tuple(result)
 
-    validation_seasons = ["2024-25"]
-    test_seasons = ["2025-26"]
 
-    train = df[
-        df["Season"].isin(training_seasons)
-    ].copy()
-
-    validation = df[
-        df["Season"].isin(validation_seasons)
-    ].copy()
-
-    test = df[
-        df["Season"].isin(test_seasons)
-    ].copy()
-
-    if min(len(train), len(validation), len(test)) == 0:
-        raise ValueError(
-            "One or more dataset splits are empty."
-        )
-
-    X_train = train[FEATURE_COLUMNS]
-    y_train = train["FTR"]
-
-    X_val = validation[FEATURE_COLUMNS]
-    y_val = validation["FTR"]
-
-    X_test = test[FEATURE_COLUMNS]
-    y_test = test["FTR"]
-
-    print("Training matches:", len(train))
-    print("Validation matches:", len(validation))
-    print("Testing matches:", len(test))
-
-    return (
-        X_train, y_train,
-        X_val, y_val,
-        X_test, y_test
-    )
+def model_candidates():
+    return {
+        "KNN": [make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=n, weights=w))
+                for n in [11, 21, 35] for w in ["uniform", "distance"]],
+        "SVM": [make_pipeline(StandardScaler(), SVC(C=c, kernel="rbf", gamma="scale", random_state=42))
+                for c in [0.3, 1.0, 3.0]],
+        "Decision Tree": [DecisionTreeClassifier(max_depth=d, min_samples_leaf=leaf, random_state=42)
+                          for d in [3, 5, 7] for leaf in [10, 20]],
+        "Random Forest": [RandomForestClassifier(n_estimators=220, max_depth=d,
+                           min_samples_leaf=leaf, max_features=0.8, random_state=42, n_jobs=-1)
+                          for d in [5, 9] for leaf in [5, 12]],
+    }
 
 
 def train_all_models():
     df = load_training_data()
+    X_train, y_train, X_val, y_val, X_test, y_test = split_data(df)
+    # Internal chronological tuning: never use 2024/25 validation or 2025/26 test to tune candidates.
+    internal_train = df[df.Season.isin(["2021-22", "2022-23"])]
+    internal_val = df[df.Season == "2023-24"]
+    if internal_train.empty or internal_val.empty:
+        raise ValueError("Not enough data for chronological tuning")
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    metric_dir = OUTPUTS_DIR / "metrics"
+    metric_dir.mkdir(parents=True, exist_ok=True)
+    tuning_rows = []
+    trained = {}
+    val_results = []
 
-    (
-        X_train, y_train,
-        X_val, y_val,
-        X_test, y_test
-    ) = split_data(df)
-
-    models = {
-        "KNN": create_knn_model(),
-        "SVM": create_svm_model(),
-        "Decision Tree": create_decision_tree_model(),
-        "Random Forest": create_random_forest_model(),
-    }
-
-    validation_results = []
-    trained_models = {}
-
-    print("\n===== TRAINING MODELS =====")
-
-    for name, model in models.items():
-        print(f"\nTraining {name}...")
-
-        model.fit(X_train, y_train)
-        trained_models[name] = model
-
-        metrics = evaluate_classifier(
-            model, X_val, y_val, name, "Validation"
+    for name, candidates in model_candidates().items():
+        winner = None
+        best_score = -np.inf
+        for index, candidate in enumerate(candidates):
+            candidate.fit(internal_train[FEATURE_COLUMNS], internal_train.FTR)
+            labels = candidate.predict(internal_val[FEATURE_COLUMNS])
+            score = f1_score(internal_val.FTR, labels, labels=["H", "D", "A"], average="macro", zero_division=0)
+            tuning_rows.append({"Model": name, "Candidate": index, "InternalMacroF1": score,
+                                "Parameters": str(candidate.get_params(deep=False))})
+            if score > best_score:
+                best_score, winner = score, candidate
+        # Refit only using all three training seasons.
+        winner.fit(X_train, y_train)
+        # Calibrate only on time-ordered training folds. Compare on 2024/25
+        # validation; never inspect the 2025/26 test to choose calibration.
+        calibration = CalibratedClassifierCV(
+            estimator=clone(winner), method="sigmoid",
+            cv=TimeSeriesSplit(n_splits=3), ensemble=True,
         )
+        calibration.fit(X_train, y_train)
+        cal_loss = log_loss(y_val, calibration.predict_proba(X_val), labels=calibration.classes_)
+        if name == "SVM":
+            winner = calibration
+            details = f"cal_val_logloss={cal_loss:.4f};selected=calibrated"
+        else:
+            raw_loss = log_loss(y_val, winner.predict_proba(X_val), labels=winner.classes_)
+            if cal_loss < raw_loss:
+                winner = calibration
+            details = f"raw_val_logloss={raw_loss:.4f};cal_val_logloss={cal_loss:.4f};selected={'calibrated' if cal_loss < raw_loss else 'raw'}"
+        tuning_rows.append({"Model": name, "Candidate": "calibration", "InternalMacroF1": np.nan,
+                            "Parameters": details})
+        trained[name] = winner
+        val_results.append(evaluate_classifier(winner, X_val, y_val, name, "Validation"))
+        safe = name.lower().replace(" ", "_")
+        joblib.dump(winner, MODELS_DIR / f"{safe}.joblib")
+        print(f"{name}: internal F1={best_score:.4f}")
 
-        validation_results.append(metrics)
+    pd.DataFrame(tuning_rows).to_csv(metric_dir / "classification_tuning.csv", index=False)
+    val_results.sort(key=lambda r: (r["F1"], r["Accuracy"]), reverse=True)
+    best_name = val_results[0]["Model"]
+    joblib.dump(trained[best_name], MODELS_DIR / "best_classifier.joblib")
+    joblib.dump(FEATURE_COLUMNS, MODELS_DIR / "feature_columns.joblib")
 
-        print(
-            f"Accuracy: {metrics['Accuracy']:.4f}"
-        )
-        print(
-            f"Macro F1: {metrics['F1']:.4f}"
-        )
-
-        safe_name = name.lower().replace(" ", "_")
-
-        joblib.dump(
-            model,
-            MODELS_DIR / f"{safe_name}.joblib"
-        )
-
-    # Select winner using validation F1 only
-    validation_results.sort(
-        key=lambda item: (
-            item["F1"],
-            item["Accuracy"]
-        ),
-        reverse=True
-    )
-
-    best_name = validation_results[0]["Model"]
-
-    print(f"\nBest validation model: {best_name}")
-
-    # Evaluate all trained models on the held-out
-    # test season, without using its scores to
-    # change the selected model.
     test_results = []
-
-    for name, model in trained_models.items():
-        metrics = evaluate_classifier(
-            model, X_test, y_test, name, "Test"
-        )
-
-        test_results.append(metrics)
-
-        save_confusion_matrix(
-            model, X_test, y_test, name
-        )
-
-    # Save original models and validation-selected winner
-    best_model = trained_models[best_name]
-
-    joblib.dump(
-        best_model,
-        MODELS_DIR / "best_classifier.joblib"
-    )
-
-    joblib.dump(
-        FEATURE_COLUMNS,
-        MODELS_DIR / "feature_columns.joblib"
-    )
-
-    results_df = save_results_table(
-        validation_results + test_results
-    )
-
-    print("\n===== MODEL COMPARISON =====")
-
-    print(
-        results_df.to_string(
-            index=False,
-            float_format=lambda x: f"{x:.4f}"
-        )
-    )
-
-    print("\nFinal selected model:", best_name)
-    print("Model files saved to:", MODELS_DIR)
-
-    return best_model
+    for name, model in trained.items():
+        test_results.append(evaluate_classifier(model, X_test, y_test, name, "Test"))
+        save_confusion_matrix(model, X_test, y_test, name)
+    result = save_results_table(val_results + test_results)
+    print("\nValidation winner:", best_name)
+    print(result.to_string(index=False))
+    print("Test results are for final evaluation only. Do not select candidates from them; this season has already been evaluated for v1.")
+    return trained[best_name]
 
 
 if __name__ == "__main__":

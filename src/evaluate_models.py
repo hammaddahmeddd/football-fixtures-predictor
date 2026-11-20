@@ -6,6 +6,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 from sklearn.metrics import (
     accuracy_score,
@@ -14,6 +15,8 @@ from sklearn.metrics import (
     f1_score,
     ConfusionMatrixDisplay,
     confusion_matrix,
+    balanced_accuracy_score,
+    log_loss,
 )
 
 from config import OUTPUTS_DIR
@@ -30,6 +33,7 @@ def evaluate_classifier(model, X, y, name, split):
         "Model": name,
         "Split": split,
         "Accuracy": accuracy_score(y, predictions),
+        "BalancedAccuracy": balanced_accuracy_score(y, predictions),
         "Precision": precision_score(
             y, predictions,
             labels=LABELS,
@@ -49,6 +53,16 @@ def evaluate_classifier(model, X, y, name, split):
             zero_division=0
         ),
     }
+
+    # Multiclass Brier and log loss assess quality of probabilistic
+    # predictions. Lower is better. Both use the model's own class order.
+    if hasattr(model, "predict_proba"):
+        probs = np.asarray(model.predict_proba(X), dtype=float)
+        classes = np.asarray(model.classes_)
+        if probs.shape[1] == len(classes):
+            results["LogLoss"] = log_loss(y, np.clip(probs, 1e-10, 1.0), labels=classes)
+            truth = (np.asarray(y)[:, None] == classes[None, :]).astype(float)
+            results["MulticlassBrier"] = float(np.mean(np.sum((probs - truth) ** 2, axis=1)))
 
     return results
 
