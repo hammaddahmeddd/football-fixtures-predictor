@@ -1,0 +1,11 @@
+{
+  "seasons": [
+    "2024-25",
+    "2025-26"
+  ],
+  "bootstrap": 2000,
+  "block_days": 28,
+  "seed": 42,
+  "multiple_testing": "Holm across all reported tests; exploratory",
+  "limitations": "Repeatedly inspected historical seasons; retrospective only. Block bootstrap approximate; McNemar assumes independent pairs. Calibration bins sparse at extremes. No production selection from these results."
+}
