@@ -1,0 +1,18 @@
+Model,TrainingTimeComplexity,InferenceTimeComplexity,SpaceComplexity,Notes
+KNN,O(nd),O(mnd),O(nd),brute-force distance; scaling included
+SVM,typically O(n²d) to O(n³d),O(m s d),up to O(n²) kernel workspace; O(sd) fitted,s=support vectors; solver dependent; calibration extra
+DecisionTree,approx O(d n log n) balanced,O(mh),O(nodes),split search depends on implementation and depth
+RandomForest,approx O(T d_sub n log n),O(mTh),O(T nodes),d_sub=features searched per split
+ExtraTrees,approx O(T d_sub n log n),O(mTh),O(T nodes),randomized split candidates
+HistGB,approx O(nd + T d B nodes),O(mTh),O(nd + T nodes),B=histogram bins; implementation dependent
+XGBoost,approx O(T n d h),O(mTh),O(nd + T nodes),histogram/quantile methods and sparsity affect cost
+LightGBM,approx O(T n d h),O(mTh),O(nd + T nodes),leaf-wise histogram method; approximation
+CatBoost,approx O(T n d h),O(mTh),O(nd + T nodes),ordered boosting and symmetric trees alter constants
+LinearRegression,O(nd² + d³) for n>=d,O(md),O(nd + d²),dense least squares
+Ridge,O(nd² + d³) for direct solver,O(md),O(nd + d²),solver dependent
+Poisson,approx O(I n d),O(md),O(nd + d),L-BFGS iterations
+Logistic,approx O(I n d c),O(mdc),O(nd + dc),c=classes; solver dependent
+KMeans,O(I n k d),O(mkd),O(nd + kd),multiply training by n_init
+SoftVoting,sum of base fits,sum of base inference,sum of base models,four base models
+QLearning,base fits + O(E A),base inference + O(mA),base models + O(SA),one-step policy; E=passes × policy rows; forecast generation extra
+DixonColes,approx O(I(n+u)),O(m G²),O(n+u + mG²),u=teams; G=score grid width; optimizer dependent

@@ -1,0 +1,23 @@
+{
+  "Python": "3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]",
+  "Platform": "Windows-11-10.0.26300-SP0",
+  "Processor": "Intel64 Family 6 Model 142 Stepping 10, GenuineIntel",
+  "LogicalCPUs": 8,
+  "PhysicalCPUs": 4,
+  "RAMGiB": 7.864109039306641,
+  "Sklearn": "1.9.1",
+  "NumPy": "2.5.4",
+  "Pandas": "3.1.1",
+  "Threads": 1,
+  "Repeats": 2,
+  "Fast": false,
+  "TrainingFixtures": [
+    760,
+    2280,
+    4940
+  ],
+  "EvaluationSeason": "2025-26",
+  "EvaluationFixtures": 380,
+  "SkippedOptionalModels": [],
+  "Notes": "Representative configurations, not exact V3.6 policy or deployed artifacts. Feature construction and model tuning excluded. RSS sampled every 5 ms. Same-date boundaries preserved. Q-learning inner policy holdout; KMeans uses 2 profiles per match; DixonColes fixed fit, not rolling refits."
+}
