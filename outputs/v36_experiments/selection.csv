@@ -1,0 +1,3 @@
+Strategy,Config,Passes,StateMode,Reward,VisitedStates,UnseenHistoricalStates,Gamma
+QAccuracy,compact_accuracy_a0.15_e0.35,100,compact,accuracy,6,0,0
+QBalanced,compact_hybrid_a0.05_e0.2,1000,compact,hybrid,6,0,0
