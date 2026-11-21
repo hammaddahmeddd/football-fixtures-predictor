@@ -1,0 +1,2 @@
+OutcomeProbability,OutcomeDecision,DrawBoost,OverProbability,OverDecision,OverThreshold
+BlendHurdle,DrawHurdle,1.4,DirectLogistic,DC_365_Cal,0.49
