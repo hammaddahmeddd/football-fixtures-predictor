@@ -1,0 +1,2 @@
+OutcomeDecision,DrawBoost,OutcomeProbability,OverDecision,OverThreshold,OverProbability,GoalsMAE,GoalsRMSE
+Shot129_Hurdle,1.4,StackAll_C0.1,XG_Direct,0.51,XG_Pois1,TrainMedian,IP_180_Shrink
