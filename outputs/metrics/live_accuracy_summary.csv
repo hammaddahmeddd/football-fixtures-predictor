@@ -1,2 +1,2 @@
 TotalPredictions,CompletedMatches,PendingMatches,CorrectResultPredictions,ResultAccuracy,CorrectOverUnderPredictions,OverUnderAccuracy,GoalMAE
-10,0,10,0,,0,,
+10,7,3,3,0.42857142857142855,3,0.42857142857142855,1.5690476190476192
