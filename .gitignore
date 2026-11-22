@@ -49,3 +49,6 @@ dist/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+data/v32_experiments/
+data/v3_experiments/
