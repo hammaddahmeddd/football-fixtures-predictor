@@ -1,38 +1,86 @@
-name: Refresh V4 shadow predictions
+name: Refresh Football Predictions (V4)
+
 on:
   workflow_dispatch:
   schedule:
     - cron: '37 2 * * *'
+
 permissions:
   contents: write
+
 concurrency:
-  group: v4-refresh
+  group: football-production-refresh
   cancel-in-progress: false
+
 jobs:
   refresh:
-    if: github.event_name == 'schedule' || github.ref == 'refs/heads/accuracy-v3'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+      PYTHONUNBUFFERED: '1'
+      MPLBACKEND: Agg
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout production branch
+        uses: actions/checkout@v4
         with:
-          ref: accuracy-v3
-      - uses: actions/setup-python@v5
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.13.5'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-      - name: Refresh V4
-        env:
-          FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
-          OPENBLAS_NUM_THREADS: '1'
-          OMP_NUM_THREADS: '1'
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip check
+
+      - name: Verify credentials and registry
+        run: |
+          python - <<'PY'
+          import os, json
+          from pathlib import Path
+          assert os.getenv('FOOTBALL_API_KEY'), 'Missing FOOTBALL_API_KEY secret'
+          root = Path('models/v4')
+          version = (root / 'active.txt').read_text().strip()
+          assert version and Path(version).name == version and version not in ('.', '..')
+          manifest = json.loads((root / version / 'manifest.json').read_text())
+          assert manifest['version'] == version
+          assert (root / version / 'bundle.joblib').is_file()
+          print('Active registry:', version)
+          PY
+
+      - name: Refresh legacy compatibility files
+        run: |
+          python -m src.predictions
+          python -m src.season_simulation
+          python -m src.prediction_history
+
+      - name: Refresh production V4 predictions
         run: python -m src.refresh_v4
-      - name: Commit generated output
+
+      - name: Validate outputs
+        run: |
+          python -m compileall -q src dashboard app.py
+          python -m pytest tests/ -v
+
+      - name: Commit validated prediction outputs
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add outputs/v4_production/
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Refresh V4 predictions and live evaluation'
-          git push origin HEAD:accuracy-v3
+          git add data/raw/premier_league_2026_27.csv data/predictions/ outputs/metrics/ outputs/graphs/ outputs/v4_production/
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+          else
+            git commit -m 'Automatically refresh validated football predictions (V4)'
+            git push origin HEAD:main
+          fi
