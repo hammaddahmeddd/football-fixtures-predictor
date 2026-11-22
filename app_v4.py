@@ -130,12 +130,12 @@ def strategy():
     st.subheader('V4 live policy');d=live();table(d[[c for c in ['HomeTeam','AwayTeam','QSelectedAction','QPrediction'] if c in d]])
 
 def simulation():
-    st.title('Season Simulation');st.warning('Legacy V2 simulation only. V4 season simulation has not yet been implemented. These standings may be stale.')
-    for f in ['season_simulation_summary.csv','season_probabilities.csv']:
-        d=read(ROOT/'data'/'predictions'/f,False)
-        if d.empty:d=read(OUT/'metrics'/f,False)
-        if d.empty:st.info(f'No saved legacy {f} available.')
-        else:table(d,f.removesuffix('.csv'))
+    st.title('Season Simulation | V4')
+    st.caption('Dixon-Coles frozen team ratings; independent score draws. Exact points/GD/GF ties are random. In-progress and postponed games are simulated unconditionally.')
+    d=read(PROD/'season_simulation_v4.csv')
+    if not d.empty:
+        table(d,'v4_standings'); chart(d,'Team','ExpectedPoints')
+        table(read(PROD/'remaining_fixtures_v4.csv'),'v4_remaining')
 
 def compute():
     st.title('Computational Analysis');d=bench('full_dataset_comparison.csv'); available=[c for c in ['FitWallSeconds','SingleMedianMs','BatchMedianMs','FitPeakRSSMiB','ModelKiB'] if c in d]
@@ -165,10 +165,13 @@ def archive_rows():
     gen=pd.to_datetime(d.PredictionGeneratedUTC,utc=True,errors='coerce');kick=pd.to_datetime(d.KickoffUTC,utc=True,errors='coerce');good=gen.notna()&kick.notna()&(gen<kick)&d.MatchID.notna();invalid=int((~good).sum());d=d.loc[good].copy();d['_gen']=gen[good];d=d.sort_values('_gen').drop_duplicates('MatchID',keep='first').drop(columns='_gen');return d,invalid
 
 def history_page():
-    st.title('Prediction History');d,invalid=archive_rows();metricrow([('Unique pre-match forecasts',len(d)),('Invalid snapshot rows excluded',invalid)])
-    st.info('First valid pre-kickoff forecast per MatchID. Automated result settlement and live accuracy are pending; started does not mean settled.')
+    st.title('Prediction History | V4')
+    d=read(PROD/'live_history_v4.csv'); m=read(PROD/'live_metrics_v4.csv')
     if not d.empty:
-        d['ArchiveStatus']=np.where(pd.to_datetime(d.KickoffUTC,utc=True)>pd.Timestamp.now(tz='UTC'),'Upcoming','Started / unverified');table(d,'first_forecasts')
+        metricrow([('Archived fixtures',len(d)),('Settled',int(d.Settlement.eq('Settled').sum()))]); table(d,'settled_history')
+    if not m.empty: table(m,'live_metrics')
+    else: st.info('No settled forecasts yet. Live performance requires completed matches.')
+    st.caption('First valid forecast per fixture, checked against recorded and current kickoff. Metrics are separated by model version; All pools versions.')
 
 def dataset():
     st.title('Dataset Explorer');d=read(ROOT/'data'/'v3_experiments'/'history.csv',False)
@@ -188,3 +191,5 @@ with st.sidebar:
     if st.button('Refresh saved data'):st.cache_data.clear();st.rerun()
 handlers=dict(zip(PAGES,[overview,matches,models,goals,teams,strategy,simulation,compute,statistics,history_page,dataset]))
 handlers[page]()
+
+
