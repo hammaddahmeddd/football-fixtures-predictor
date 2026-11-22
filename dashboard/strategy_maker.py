@@ -1,3 +1,5 @@
+# V4 CLEAN DASHBOARD ADAPTER
+from dashboard import v4_data as v4
 
 import pandas as pd
 import streamlit as st
@@ -27,7 +29,7 @@ def render():
 
     st.write(
         "A reinforcement learning component that "
-        "selects one of four trained classification "
+        "selects among trained statistical and classification "
         "models for each match."
     )
 
@@ -36,7 +38,7 @@ def render():
         "not an on-field football tactic."
     )
 
-    st.subheader("Available Actions")
+    st.subheader("Example Available Actions")
 
     st.dataframe(
         pd.DataFrame({
@@ -60,11 +62,9 @@ def render():
     st.divider()
 
     st.subheader("Q-Learning Evaluation")
+    st.caption("V3.6 research policies; V4 live policy is separately fitted.")
 
-    comparison = read_optional_csv(
-        METRICS_DIR
-        / "q_learning_comparison.csv"
-    )
+    comparison = v4.read(OUTPUTS_DIR / "v36_experiments" / "comparison.csv")
 
     if comparison is not None:
 
@@ -84,10 +84,7 @@ def render():
 
     st.subheader("Training History")
 
-    history = read_optional_csv(
-        METRICS_DIR
-        / "q_learning_training_history.csv"
-    )
+    history = v4.read(OUTPUTS_DIR / "v36_experiments" / "training_history.csv")
 
     if history is not None:
 
@@ -130,19 +127,16 @@ def render():
 
     st.subheader("Weekly Strategy Decisions")
 
-    weekly = read_optional_csv(
-        PREDICTIONS_DIR
-        / "weekly_predictions.csv"
-    )
+    weekly = v4.weekly()
 
     if weekly is not None:
 
         columns = [
             "HomeTeam",
             "AwayTeam",
-            "SelectedModel",
-            "PredictedResult",
-            "SelectedConfidence",
+            "QSelectedAction",
+            "QPrediction",
+            
         ]
 
         available = [
@@ -159,7 +153,7 @@ def render():
         st.subheader("Models Selected This Week")
 
         selections = (
-            weekly["SelectedModel"]
+            weekly["QSelectedAction"]
             .value_counts()
             .rename_axis("Model")
             .reset_index(name="Matches")
@@ -181,8 +175,8 @@ def render():
     )
 
     st.write(
-        "2. It chooses KNN, SVM, Decision Tree "
-        "or Random Forest."
+        "2. It can choose KNN, SVM, Decision Tree "
+        "or other supported models."
     )
 
     st.write(

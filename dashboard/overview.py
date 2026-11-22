@@ -1,3 +1,5 @@
+# V4 CLEAN DASHBOARD ADAPTER
+from dashboard import v4_data as v4
 
 """
 Football Fixtures Result Predictor
@@ -68,30 +70,24 @@ def render():
         RAW_DATA_DIR / "premier_league_2026_27.csv"
     )
 
-    weekly = read_csv(
-        PREDICTIONS_DIR / "weekly_predictions.csv"
-    )
+    weekly = v4.weekly()
 
-    season = read_csv(
-        OUTPUTS_DIR
-        / "metrics"
-        / "season_simulation_summary.csv"
-    )
+    season = v4.season()
 
     # ======================================
     # PROJECT SUMMARY METRICS
     # ======================================
 
     st.subheader("Project Overview")
+    version, manifest = v4.active()
+    st.caption("V4 registry: " + (version or "Unavailable"))
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
-            "Historical Matches",
-            f"{len(historical):,}"
-            if historical is not None
-            else "N/A"
+            "V4 Training Matches",
+            f"{manifest.get('training_rows', 'N/A')}"
         )
 
     with col2:
@@ -167,7 +163,7 @@ def render():
                 "Support Vector Machine",
                 "Decision Tree",
                 "Random Forest",
-                "Random Forest Regressor",
+                "Poisson / Ridge / Median",
                 "K-Means",
                 "Q-Learning",
                 "Monte Carlo Simulation",
@@ -346,7 +342,7 @@ def render():
         )
 
         st.code(
-            "python -m src.season_simulation",
+            "python -m src.refresh_v4",
             language="powershell"
         )
 

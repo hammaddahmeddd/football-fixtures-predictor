@@ -1,3 +1,5 @@
+# V4 CLEAN DASHBOARD ADAPTER
+from dashboard import v4_data as v4
 
 import pandas as pd
 import streamlit as st
@@ -30,15 +32,9 @@ def render():
         "and Over/Under 2.5 analysis."
     )
 
-    results = read_optional_csv(
-        METRICS_DIR
-        / "regression_results.csv"
-    )
+    results = v4.metrics("Goals")
 
-    weekly = read_optional_csv(
-        PREDICTIONS_DIR
-        / "weekly_predictions.csv"
-    )
+    weekly = v4.weekly()
 
     test_predictions = read_optional_csv(
         METRICS_DIR
@@ -72,48 +68,11 @@ def render():
 
     st.subheader("Actual vs Predicted Goals")
 
-    actual_chart = (
-        GRAPH_DIR
-        / "regression_actual_vs_predicted.png"
-    )
-
-    if actual_chart.exists():
-
-        st.image(
-            str(actual_chart),
-            width="stretch"
-        )
-
-    elif test_predictions is not None:
-
-        st.dataframe(
-            test_predictions.head(30),
-            hide_index=True,
-            width="stretch"
-        )
-
-    else:
-
-        st.info(
-            "Actual-vs-predicted chart not available."
-        )
-
-    st.subheader("Prediction Error Distribution")
-
-    error_chart = (
-        GRAPH_DIR
-        / "regression_error_distribution.png"
-    )
-
-    if error_chart.exists():
-
-        st.image(
-            str(error_chart),
-            width="stretch"
-        )
-
+    v4.goal_charts()
     st.divider()
-
+    st.subheader("Over/Under Evaluation")
+    v4.table(v4.metrics("OverUnder"))
+    st.divider()
     st.subheader("Upcoming Fixture Goal Forecasts")
 
     if weekly is not None:
@@ -123,6 +82,7 @@ def render():
             "AwayTeam",
             "PredictedTotalGoals",
             "OverUnder2_5",
+            "ExpectedHomeGoalsDC", "ExpectedAwayGoalsDC", "Score1",
         ]
 
         if all(
@@ -151,7 +111,7 @@ def render():
     st.divider()
 
     st.warning(
-        "The saved regression evaluation showed "
+        "Historical evaluation of selected regression models showed "
         "that the model did not outperform the "
         "simple mean-goals baseline on the test "
         "season. These forecasts should therefore "

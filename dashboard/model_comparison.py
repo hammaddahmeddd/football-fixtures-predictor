@@ -1,3 +1,5 @@
+# V4 CLEAN DASHBOARD ADAPTER
+from dashboard import v4_data as v4
 
 import pandas as pd
 import streamlit as st
@@ -9,18 +11,8 @@ METRICS_DIR = OUTPUTS_DIR / "metrics"
 GRAPH_DIR = OUTPUTS_DIR / "graphs"
 
 
-@st.cache_data
 def load_results():
-
-    path = (
-        METRICS_DIR
-        / "classification_results.csv"
-    )
-
-    if not path.exists():
-        return None
-
-    return pd.read_csv(path)
+    return v4.metrics("Outcome")
 
 
 def render():
@@ -28,8 +20,8 @@ def render():
     st.title("📊 Model Comparison")
 
     st.write(
-        "Evaluation of the four classification "
-        "models on historical Premier League data."
+        "Evaluation of classification "
+        "and additional models on the 760-match historical benchmark."
     )
 
     df = load_results()
@@ -38,7 +30,7 @@ def render():
 
         st.warning(
             "Classification results are missing. "
-            "Run python -m src.train_models."
+            "Run python -m src.accuracy_v39."
         )
         return
 
@@ -65,6 +57,7 @@ def render():
             "Test_Macro_F1",
             "Test_MacroF1",
             "Macro_F1",
+            "MacroF1",
             "Macro F1",
             "F1",
         ],
@@ -139,7 +132,7 @@ def render():
 
     st.divider()
 
-    st.subheader("Confusion Matrices")
+    st.subheader("Confusion Matrices (legacy V2)")
 
     images = sorted(
         GRAPH_DIR.glob("*confusion*.png")
@@ -186,3 +179,5 @@ def render():
         "minority classes."
     )
 
+
+    v4.research()

@@ -1,3 +1,5 @@
+# V4 CLEAN DASHBOARD ADAPTER
+from dashboard import v4_data as v4
 
 import pandas as pd
 import streamlit as st
@@ -9,18 +11,8 @@ METRICS_DIR = OUTPUTS_DIR / "metrics"
 GRAPH_DIR = OUTPUTS_DIR / "graphs"
 
 
-@st.cache_data
 def load_season():
-
-    path = (
-        METRICS_DIR
-        / "season_simulation_summary.csv"
-    )
-
-    if not path.exists():
-        return None
-
-    return pd.read_csv(path)
+    return v4.season()
 
 
 def render():
@@ -29,7 +21,7 @@ def render():
 
     st.write(
         "Full-season projections based on "
-        "1,000 Monte Carlo simulations."
+        "V4 Monte Carlo simulations (default 5,000)."
     )
 
     df = load_season()
@@ -38,7 +30,7 @@ def render():
 
         st.warning(
             "Season simulation results not found. "
-            "Run python -m src.season_simulation."
+            "Run python -m src.refresh_v4."
         )
         return
 
@@ -118,7 +110,7 @@ def render():
     st.download_button(
         "Download Season Projections",
         df.to_csv(index=False),
-        file_name="season_simulation_summary.csv",
+        file_name="season_simulation_v4.csv",
         mime="text/csv",
     )
 
@@ -126,33 +118,8 @@ def render():
 
     st.subheader("League Outcome Charts")
 
-    charts = [
-        (
-            "Projected Final Points",
-            "projected_final_points.png",
-        ),
-        (
-            "Top-Four Probability",
-            "top4_probabilities.png",
-        ),
-        (
-            "Relegation Probability",
-            "relegation_probabilities.png",
-        ),
-    ]
-
-    for title, filename in charts:
-
-        path = GRAPH_DIR / filename
-
-        if path.exists():
-
-            st.markdown(f"**{title}**")
-
-            st.image(
-                str(path),
-                width="stretch"
-            )
+    for col in ["ExpectedPoints", "Top4Probability", "RelegationProbability"]:
+        st.bar_chart(display.set_index("Team")[[col]])
 
     st.divider()
 

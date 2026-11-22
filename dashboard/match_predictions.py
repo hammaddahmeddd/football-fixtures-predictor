@@ -1,3 +1,5 @@
+# V4 CLEAN DASHBOARD ADAPTER
+from dashboard import v4_data as v4
 
 """
 Dashboard: Weekly Match Predictions
@@ -16,18 +18,8 @@ RESULT_NAMES = {
 }
 
 
-@st.cache_data
 def load_predictions():
-
-    path = (
-        PREDICTIONS_DIR
-        / "weekly_predictions.csv"
-    )
-
-    if not path.exists():
-        return None
-
-    return pd.read_csv(path)
+    return v4.weekly()
 
 
 def render():
@@ -45,7 +37,7 @@ def render():
 
         st.warning(
             "Weekly predictions are unavailable. "
-            "Run python -m src.predictions."
+            "Run python -m src.refresh_v4."
         )
         return
 
@@ -116,7 +108,7 @@ def render():
             "HomeTeam": "Home Team",
             "AwayTeam": "Away Team",
             "ResultLabel": "Prediction",
-            "PredictedTotalGoals": "Expected Goals",
+            "PredictedTotalGoals": "Selected Goal Estimate",
             "OverUnder2_5": "Over / Under 2.5",
             "SelectedModel": "Selected Model",
             "SelectedConfidence": "Confidence (%)",
@@ -128,9 +120,9 @@ def render():
         hide_index=True,
         width="stretch",
         column_config={
-            "Expected Goals":
+            "Selected Goal Estimate":
                 st.column_config.NumberColumn(
-                    "Expected Goals",
+                    "Selected Goal Estimate",
                     format="%.2f"
                 ),
             "Confidence (%)":
@@ -146,7 +138,7 @@ def render():
     st.download_button(
         "Download All Predictions",
         df.to_csv(index=False),
-        file_name="weekly_predictions.csv",
+        file_name="weekly_predictions_v4.csv",
         mime="text/csv",
         width="content",
     )
@@ -198,9 +190,9 @@ def render():
         )
 
         st.write(
-            f"Q-Learning selected the "
+            f"The primary strategy uses the "
             f"**{match['SelectedModel']}** "
-            "classifier for this fixture."
+            "model for this fixture."
         )
 
         st.caption(
@@ -215,7 +207,7 @@ def render():
     col1, col2, col3 = st.columns(3)
 
     col1.metric(
-        "Expected Goals",
+        "Selected Goal Estimate",
         f"{match['PredictedTotalGoals']:.2f}"
     )
 
@@ -225,7 +217,7 @@ def render():
     )
 
     col3.metric(
-        "Model Confidence",
+        "Primary decision probability",
         f"{match['SelectedConfidence']:.1%}"
     )
 
@@ -281,9 +273,9 @@ def render():
                     str(code)
                 ),
             "Confidence (%)": confidence,
-            "Selected by RL": (
+            "Selected by Q-Learning": (
                 "Yes"
-                if name == match["SelectedModel"]
+                if name.replace(" ", "") == str(match.get("QSelectedAction", "")).split("@")[0]
                 else "No"
             ),
         })
@@ -324,7 +316,7 @@ def render():
     else:
 
         st.write(
-            "The Q-Learning policy selected "
+            "The validation-selected primary model is "
             f"{match['SelectedModel']}."
         )
 
@@ -335,3 +327,5 @@ def render():
         "estimate has not been independently verified."
     )
 
+
+    v4.match_extra(match)
